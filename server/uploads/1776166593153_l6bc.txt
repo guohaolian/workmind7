@@ -1,0 +1,56 @@
+郝洪辉
+	杰普软件科技有限公司
+day01
+	# 云服务器的root账户
+	$ 云服务器的普通用户
+	> window下本地终端
+
+	1.购买并连接阿里云服务器
+		>ssh root@47.94.46.113
+
+		通过Xshell
+	2.组长添加普通用户
+		# adduser zhangsan
+
+		> ssh zhangsan@123.56.163.236
+	3.安装Apache静态服务器
+		# apt update
+		# apt install apache2
+		测试：
+			在浏览器地址栏输入阿里云公网ip，点击回车，Apache的默认页面能弹出，代表Apache安装成功
+	4.安装java环境jdk1.8
+		# apt install openjdk-8-jre-headless
+		测试
+			# java -version
+	5.安装mysql数据库
+		linux vi编辑器
+			命令行模式
+			插入模式
+			底行模式
+
+		# apt install mysql-server-5.7
+
+		修改mysql的配置信息-> 为了远程连接
+			#mysql -u root -p
+		1）修改数据库root的host权限
+			mysql> use mysql；
+			mysql> select User,authentication_string,Host from user;
+			mysql> update user set host='%' where user='root';
+			mysql> ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'root_pwd'; ## 授权root远程登录 后面的root_pwd代表登录密码
+		2）修改配置文件中bind-address
+			# cd /etc/mysql/mysql.conf.d
+			# vi mysqld.cnf
+
+			单击i 进入插入模式
+			将内部的bind-address 改为0.0.0.0
+			按esc推出
+			:wq保存并推出
+
+			重启mysql服务
+			service mysql restart
+
+
+
+
+
+

@@ -1,0 +1,5 @@
+# ReCode local database
+.recode
+dist
+node_modules
+.env
