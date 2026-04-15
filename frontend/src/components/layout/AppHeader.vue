@@ -5,7 +5,9 @@
     <!-- 左：页面标题 -->
     <div class="header-left">
       <h1 class="page-title">
-        <el-icon class="page-icon"><component :is="currentMeta.icon" /></el-icon>
+        <el-icon class="page-icon">
+          <component :is="currentMeta.icon" />
+        </el-icon>
         {{ currentMeta.title }}
       </h1>
       <span v-if="currentMeta.desc" class="page-desc">{{ currentMeta.desc }}</span>
@@ -15,13 +17,15 @@
     <div class="header-right">
       <!-- 预算预警（超出预算时出现） -->
       <div v-if="budgetAlert" class="budget-alert">
-        <el-icon><Warning /></el-icon> 今日用量已达 {{ budgetAlert }}，请注意控制
+        <el-icon>
+          <Warning />
+        </el-icon> 今日用量已达 {{ budgetAlert }}，请注意控制
       </div>
 
       <!-- 用户头像（演示用） -->
       <div class="user-info">
-        <div class="user-avatar">大</div>
-        <span class="user-name">大伟</span>
+        <div class="user-avatar">郭</div>
+        <span class="user-name">北郭</span>
       </div>
     </div>
   </header>
@@ -37,13 +41,13 @@ const monitorStore = useMonitorStore()
 
 // 各页面的标题和描述（icon 使用 Element Plus 图标名）
 const pageMeta = {
-  '/chat':      { title: '智能对话助手',   icon: 'ChatDotRound', desc: '多轮对话，流式输出，记住你的偏好' },
-  '/knowledge': { title: '知识库问答',     icon: 'Reading',      desc: '上传文档，基于内容精准回答' },
-  '/agent':     { title: '任务执行 Agent', icon: 'Cpu',          desc: '复杂任务自动拆解，工具调用可视化' },
-  '/workflow':  { title: '内容生成工作流', icon: 'Operation',    desc: '周报、纪要、邮件、PRD 一键生成' },
-  '/erp':       { title: 'ERP 报销与请假', icon: 'Tickets',      desc: '智能填单，AI 模拟审批流程' },
-  '/prompt':    { title: 'Prompt 调试工具', icon: 'EditPen',     desc: 'A/B 测试，版本管理，效果对比' },
-  '/monitor':   { title: '用量与成本看板', icon: 'DataAnalysis', desc: 'Token 消耗、费用、缓存命中率' },
+  '/chat': { title: '智能对话助手', icon: 'ChatDotRound', desc: '多轮对话，流式输出，记住你的偏好' },
+  '/knowledge': { title: '知识库问答', icon: 'Reading', desc: '上传文档，基于内容精准回答' },
+  '/agent': { title: '任务执行 Agent', icon: 'Cpu', desc: '复杂任务自动拆解，工具调用可视化' },
+  '/workflow': { title: '内容生成工作流', icon: 'Operation', desc: '周报、纪要、邮件、PRD 一键生成' },
+  '/erp': { title: 'ERP 报销与请假', icon: 'Tickets', desc: '智能填单，AI 模拟审批流程' },
+  '/prompt': { title: 'Prompt 调试工具', icon: 'EditPen', desc: 'A/B 测试，版本管理，效果对比' },
+  '/monitor': { title: '用量与成本看板', icon: 'DataAnalysis', desc: 'Token 消耗、费用、缓存命中率' },
 }
 
 const currentMeta = computed(() => {
@@ -82,7 +86,10 @@ const budgetAlert = computed(() => monitorStore.budgetWarning)
   color: var(--color-text);
 }
 
-.page-icon { font-size: 18px; color: var(--color-primary); }
+.page-icon {
+  font-size: 18px;
+  color: var(--color-primary);
+}
 
 .page-desc {
   font-size: 12px;
@@ -116,7 +123,10 @@ const budgetAlert = computed(() => monitorStore.budgetWarning)
   border-radius: var(--radius-md);
   transition: background var(--transition);
 }
-.user-info:hover { background: var(--color-border-light); }
+
+.user-info:hover {
+  background: var(--color-border-light);
+}
 
 .user-avatar {
   width: 30px;
@@ -137,5 +147,15 @@ const budgetAlert = computed(() => monitorStore.budgetWarning)
   color: var(--color-text);
 }
 
-@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 </style>
