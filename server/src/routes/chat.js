@@ -12,6 +12,7 @@ import {
 import { validateChat, rateLimiter, securityCheck } from '../middleware/index.js'
 import { sendSseError } from '../utils/errors.js'
 import { logger } from '../utils/logger.js'
+import { recordApiCall } from './monitor.js'
 
 export const chatRouter = express.Router()
 
@@ -71,6 +72,8 @@ chatRouter.post('/stream',
     }
 
     try {
+      const startMs = Date.now()
+
       // 1. 拼接 system prompt：角色 + 用户画像
       const baseSystem = ROLES[role] || ROLES.default
       const profile = getProfile(userId)
@@ -89,6 +92,11 @@ chatRouter.post('/stream',
           await new Promise(r => setTimeout(r, 6))
         }
         send('done', { fromCache: true })
+        recordApiCall({
+          feature: 'chat',
+          fromCache: true,
+          latencyMs: Date.now() - startMs,
+        })
         return res.end()
       }
 
@@ -108,7 +116,6 @@ chatRouter.post('/stream',
       // 5. 流式调用模型
       let fullReply = ''
       let inputTokens = 0, outputTokens = 0
-
       const stream = await chatModel.stream(messages)
 
       for await (const chunk of stream) {
@@ -140,6 +147,13 @@ chatRouter.post('/stream',
       extractAndUpdateProfile(userId, message, fullReply).catch(() => {})
 
       send('done', { fromCache: false, inputTokens, outputTokens })
+      recordApiCall({
+        feature: 'chat',
+        inputTokens,
+        outputTokens,
+        fromCache: false,
+        latencyMs: Date.now() - startMs,
+      })
       logger.info('chat done', {
         sessionId,
         inputTokens,

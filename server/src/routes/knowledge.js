@@ -8,6 +8,7 @@ import { ragQueryStream } from '../services/rag/query.js'
 import { rateLimiter } from '../middleware/index.js'
 import { sendSseError } from '../utils/errors.js'
 import { logger } from '../utils/logger.js'
+import { recordApiCall } from './monitor.js'
 
 export const knowledgeRouter = express.Router()
 
@@ -125,6 +126,7 @@ knowledgeRouter.post('/query/stream', rateLimiter, async (req, res) => {
       res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
     }
   }
+  const startMs = Date.now()
 
   try {
     send('status', { message: '正在检索相关文档...' })
@@ -137,6 +139,11 @@ knowledgeRouter.post('/query/stream', rateLimiter, async (req, res) => {
     if (!sources.length) {
       send('token', { token: '知识库中未找到相关内容，请尝试上传相关文档后再提问。' })
       send('done', {})
+      recordApiCall({
+        feature: 'knowledge',
+        latencyMs: Date.now() - startMs,
+        fromCache: false,
+      })
       return res.end()
     }
 
@@ -148,6 +155,11 @@ knowledgeRouter.post('/query/stream', rateLimiter, async (req, res) => {
     }
 
     send('done', {})
+    recordApiCall({
+      feature: 'knowledge',
+      latencyMs: Date.now() - startMs,
+      fromCache: false,
+    })
     logger.info('knowledge: query done', {
       question: question.slice(0, 40),
       sources:  sources.length,

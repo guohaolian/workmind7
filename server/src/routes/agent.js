@@ -5,6 +5,7 @@ import { runAgent, getToolList } from '../services/agent/agent.js'
 import { rateLimiter, securityCheck, validateChat } from '../middleware/index.js'
 import { sendSseError } from '../utils/errors.js'
 import { logger } from '../utils/logger.js'
+import { recordApiCall } from './monitor.js'
 
 export const agentRouter = express.Router()
 
@@ -37,11 +38,18 @@ agentRouter.post('/run',
     }
 
     try {
+      const startMs = Date.now()
       send('start', { task, timestamp: new Date().toISOString() })
 
       // 执行 Agent，通过回调把每一步推送给前端
       await runAgent(task, (type, data) => {
         send(type, data)
+      })
+
+      recordApiCall({
+        feature: 'agent',
+        latencyMs: Date.now() - startMs,
+        fromCache: false,
       })
     } catch (err) {
       logger.error('agent route error', { error: err.message, traceId: req.traceId })

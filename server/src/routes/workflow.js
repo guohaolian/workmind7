@@ -5,6 +5,7 @@ import { WORKFLOW_BUILDERS, WORKFLOW_META } from '../services/workflow/workflows
 import { rateLimiter } from '../middleware/index.js'
 import { sendSseError } from '../utils/errors.js'
 import { logger } from '../utils/logger.js'
+import { recordApiCall } from './monitor.js'
 
 export const workflowRouter = express.Router()
 
@@ -40,6 +41,7 @@ workflowRouter.post('/start/stream', rateLimiter, async (req, res) => {
       res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
     }
   }
+  const startMs = Date.now()
 
   try {
     // 创建工作流实例
@@ -98,10 +100,20 @@ workflowRouter.post('/start/stream', rateLimiter, async (req, res) => {
         // 把当前各步骤的中间产物给前端，供人工审核查看
         intermediates:  getIntermediates(state.values, workflowId),
       })
+      recordApiCall({
+        feature: 'workflow',
+        latencyMs: Date.now() - startMs,
+        fromCache: false,
+      })
     } else {
       // 工作流完成（理论上不走这里，因为有 interruptBefore）
       const result = state.values[meta.resultKey] || ''
       send('completed', { threadId, result })
+      recordApiCall({
+        feature: 'workflow',
+        latencyMs: Date.now() - startMs,
+        fromCache: false,
+      })
     }
 
   } catch (err) {
@@ -134,6 +146,7 @@ workflowRouter.post('/resume/stream', rateLimiter, async (req, res) => {
       res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
     }
   }
+  const startMs = Date.now()
 
   try {
     // 注入人工反馈到工作流状态
@@ -175,6 +188,11 @@ workflowRouter.post('/resume/stream', rateLimiter, async (req, res) => {
     const result = finalState.values[meta.resultKey] || ''
 
     send('completed', { threadId, result })
+    recordApiCall({
+      feature: 'workflow',
+      latencyMs: Date.now() - startMs,
+      fromCache: false,
+    })
 
     // 清理实例
     activeWorkflows.delete(threadId)

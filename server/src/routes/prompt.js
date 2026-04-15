@@ -8,6 +8,7 @@ import {
 import { rateLimiter } from '../middleware/index.js'
 import { sendSseError } from '../utils/errors.js'
 import { logger } from '../utils/logger.js'
+import { recordApiCall } from './monitor.js'
 
 export const promptRouter = express.Router()
 
@@ -73,6 +74,14 @@ promptRouter.post('/test/stream', rateLimiter, async (req, res) => {
       outputTokens,
       totalTokens: inputTokens + outputTokens,
       costCNY: ((inputTokens / 1e6 * 0.27) + (outputTokens / 1e6 * 1.10)) * 7.2,
+    })
+
+    recordApiCall({
+      feature: 'prompt',
+      inputTokens,
+      outputTokens,
+      latencyMs,
+      fromCache: false,
     })
 
     logger.info('prompt test done', { latencyMs, inputTokens, outputTokens })

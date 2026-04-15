@@ -6,6 +6,7 @@ import { runApprovalFlow, APPROVAL_ROLES } from '../services/erp/approval.js'
 import { rateLimiter } from '../middleware/index.js'
 import { sendSseError } from '../utils/errors.js'
 import { logger } from '../utils/logger.js'
+import { recordApiCall } from './monitor.js'
 
 export const erpRouter = express.Router()
 
@@ -26,6 +27,7 @@ erpRouter.post('/parse', rateLimiter, async (req, res) => {
   }
 
   try {
+    const startMs = Date.now()
     let form
     if (formType === 'expense') {
       form = await parseExpenseForm(text)
@@ -35,6 +37,12 @@ erpRouter.post('/parse', rateLimiter, async (req, res) => {
     } else {
       form = await parseLeaveForm(text)
     }
+
+    recordApiCall({
+      feature: 'erp',
+      latencyMs: Date.now() - startMs,
+      fromCache: false,
+    })
 
     res.json({ success: true, form, formType })
   } catch (err) {
@@ -78,6 +86,7 @@ erpRouter.post('/submit/stream', rateLimiter, async (req, res) => {
   send('start', { appId, formType })
 
   try {
+    const startMs = Date.now()
     const result = await runApprovalFlow(
       application.formData,
       formType,
@@ -96,6 +105,11 @@ erpRouter.post('/submit/stream', rateLimiter, async (req, res) => {
     application.updatedAt = new Date().toISOString()
 
     send('done', { appId })
+    recordApiCall({
+      feature: 'erp',
+      latencyMs: Date.now() - startMs,
+      fromCache: false,
+    })
 
   } catch (err) {
     logger.error('erp: approval error', { error: err.message, appId })
