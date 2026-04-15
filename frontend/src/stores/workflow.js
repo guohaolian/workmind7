@@ -124,6 +124,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
       '/api/workflow/start/stream',
       { workflowId: selectedTemplate.value, input },
       {
+        terminalEvents: ['done', 'error', 'paused', 'completed'],
         onEvent: (event, data) => {
           if (event === 'start') {
             currentThreadId.value = data.threadId
@@ -176,6 +177,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
       '/api/workflow/resume/stream',
       { threadId: currentThreadId.value, feedback },
       {
+        terminalEvents: ['done', 'error', 'paused', 'completed'],
         onToken: (token) => {
           streamBuffer.value += token
         },

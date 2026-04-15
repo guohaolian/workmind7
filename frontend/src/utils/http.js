@@ -51,7 +51,12 @@ http.interceptors.response.use(
 // onEvent：收到特定事件（sources、tool_start 等）的回调
 // onDone：流结束时的回调
 // onError：出错时的回调
-export async function fetchStream(url, body, { onToken, onEvent, onDone, onError } = {}) {
+// terminalEvents：允许调用方声明哪些事件也可视为“正常终止”
+export async function fetchStream(
+  url,
+  body,
+  { onToken, onEvent, onDone, onError, terminalEvents = ['done', 'error'] } = {}
+) {
   try {
     const buildCandidates = (path) => {
       if (/^https?:\/\//i.test(path)) return [path]
@@ -106,6 +111,11 @@ export async function fetchStream(url, body, { onToken, onEvent, onDone, onError
       const decoder = new TextDecoder()
       let buffer    = ''
       let hasTerminalEvent = false
+      const terminalEventSet = new Set(
+        (Array.isArray(terminalEvents) ? terminalEvents : [])
+          .map(evt => String(evt || '').trim())
+          .filter(Boolean)
+      )
 
       const dispatchPart = (rawPart) => {
         const part = rawPart.trim()
@@ -143,8 +153,11 @@ export async function fetchStream(url, body, { onToken, onEvent, onDone, onError
         } else if (event === 'error') {
           hasTerminalEvent = true
           onError?.(new Error(data.message || '流式请求出错'))
-        } else if (onEvent) {
-          onEvent(event, data)
+        } else {
+          if (terminalEventSet.has(event)) {
+            hasTerminalEvent = true
+          }
+          onEvent?.(event, data)
         }
       }
 
