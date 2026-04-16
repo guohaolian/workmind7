@@ -5,7 +5,7 @@ import { useAppStore } from '@/stores/app.js'
 
 // 创建 axios 实例
 const http = axios.create({
-  baseURL: '/api',           // 配合 vite proxy，开发时自动转发到 :3000
+  baseURL: '/api',           // 配合 vite proxy，开发时自动转发到 :8026
   timeout: 30000,            // 普通请求 30s 超时
 })
 
@@ -62,7 +62,7 @@ export async function fetchStream(
       if (/^https?:\/\//i.test(path)) return [path]
       const candidates = [path]
       if (path.startsWith('/api/')) {
-        candidates.push(`http://localhost:3000${path}`)
+        candidates.push(`http://localhost:8026${path}`)
       }
       return [...new Set(candidates)]
     }

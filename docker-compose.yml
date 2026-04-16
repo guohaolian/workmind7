@@ -10,17 +10,17 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+    image: workmind-server:latest
     container_name: workmind-server
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "127.0.0.1:8026:8026"
+    env_file:
+      - ./server/.env
     environment:
       - NODE_ENV=production
-      - PORT=3000
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PORT=8026
       - CHROMA_URL=http://chroma:8000
-      - ALLOWED_ORIGINS=http://localhost:5173,https://yourdomain.com
     depends_on:
       chroma:
         condition: service_started
@@ -31,11 +31,12 @@ services:
 
   # ── Chroma 向量数据库（RAG 模块用）────────────────────────
   chroma:
+    # 如果服务器拉取 Docker Hub 很慢/受限，可在本地 docker save 后上传到服务器再 docker load
     image: chromadb/chroma:latest
     container_name: workmind-chroma
     restart: unless-stopped
     ports:
-      - "8006:8000"
+      - "127.0.0.1:8006:8000"
     volumes:
       - chroma-data:/chroma/chroma
     networks:

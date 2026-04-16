@@ -1,0 +1,24 @@
+# /etc/systemd/system/workmind.service
+# WorkMind (docker compose) boot service
+
+[Unit]
+Description=WorkMind (docker compose)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/workmind
+
+# 启动（按当前目录的 docker-compose.yml 拉起容器）
+ExecStart=/usr/bin/docker compose up -d
+
+# 停止（可选：systemctl stop workmind 时会 down）
+ExecStop=/usr/bin/docker compose down
+
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

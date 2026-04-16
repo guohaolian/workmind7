@@ -9,9 +9,9 @@ RUN npm install --only=production
 COPY src/ ./src/
 
 ENV NODE_ENV=production
-EXPOSE 3000
+EXPOSE 8026
 
 HEALTHCHECK --interval=30s --timeout=5s \
-  CMD wget -qO- http://localhost:3000/health/live || exit 1
+  CMD wget -qO- http://localhost:8026/health/live || exit 1
 
 CMD ["node", "src/index.js"]
