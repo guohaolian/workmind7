@@ -46,7 +46,6 @@ cp .env.example .env
 cd server
 npm install
 npm run dev
-# 服务启动在 http://localhost:3000
 ```
 
 ### 4. 启动前端
@@ -78,7 +77,8 @@ docker rm workmind-chroma
 ```bash
 cp server/.env.example .env
 # 填入 Key
-docker-compose up -d
+
+docker-compose up -d --build
 ```
 
 ## 项目结构

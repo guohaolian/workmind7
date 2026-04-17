@@ -1,12 +1,12 @@
 [
   {
-    "id": "doc_1776235823106_y16wn",
+    "id": "doc_1776409978094_evoh2",
     "title": "note",
     "fileName": "note.txt",
     "category": "通用",
     "chunks": 3,
     "chars": 1029,
-    "uploadedAt": "2026-04-15T06:50:23.573Z",
+    "uploadedAt": "2026-04-17T07:12:58.521Z",
     "preview": "郝洪辉\r \t杰普软件科技有限公司\r day01\r \t# 云服务器的root账户\r \t$ 云服务器的普通用户\r \t> window下本地终端\r \r \t1.购买并连接阿里云服务器\r \t\t>ssh root@47.94.46.113\r \r \t\t通..."
   }
 ]
