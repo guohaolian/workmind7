@@ -72,7 +72,7 @@ docker start workmind-chroma
 docker rm workmind-chroma
 ```
 
-### 6. 一键 Docker 部署
+### 6. 一键 Docker 部署（后端+向量数据库）
 
 ```bash
 cp server/.env.example .env
