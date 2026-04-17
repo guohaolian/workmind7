@@ -46,6 +46,7 @@ cp .env.example .env
 cd server
 npm install
 npm run dev
+//运行地址http://localhost:8026
 ```
 
 ### 4. 启动前端
