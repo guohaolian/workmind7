@@ -88,9 +88,11 @@ const renderedContent = computed(() => {
 })
 
 async function copy() {
-  await chatStore.copyMessage(props.message.content)
-  copied.value = true
-  setTimeout(() => { copied.value = false }, 2000)
+  const ok = await chatStore.copyMessage(props.message.content)
+  if (ok) {
+    copied.value = true
+    setTimeout(() => { copied.value = false }, 2000)
+  }
 }
 
 function like() {

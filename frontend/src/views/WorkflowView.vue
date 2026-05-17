@@ -105,6 +105,7 @@ import { useWorkflowStore } from '@/stores/workflow.js'
 import { useAppStore } from '@/stores/app.js'
 import WorkflowGraph from '@/components/workflow/WorkflowGraph.vue'
 import HumanReviewPanel from '@/components/workflow/HumanReviewPanel.vue'
+import { copyToClipboard } from '@/utils/clipboard.js'
 
 const wfStore  = useWorkflowStore()
 const appStore = useAppStore()
@@ -156,8 +157,17 @@ function handleAbort() {
 }
 
 async function copyResult() {
-  await navigator.clipboard.writeText(wfStore.result)
-  appStore.toast.success('已复制到剪贴板')
+  const { ok, reason } = await copyToClipboard(wfStore.result)
+  if (ok) {
+    appStore.toast.success('已复制到剪贴板')
+    return
+  }
+
+  if (reason === 'empty') {
+    appStore.toast.warning('没有可复制的内容')
+  } else {
+    appStore.toast.error('复制失败：浏览器限制（建议使用 HTTPS 访问）')
+  }
 }
 
 function restart() {

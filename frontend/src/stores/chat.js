@@ -6,6 +6,7 @@ import { fetchStream } from '@/utils/http.js'
 import http from '@/utils/http.js'
 import { useAppStore } from './app.js'
 import { useMonitorStore } from './monitor.js'
+import { copyToClipboard } from '@/utils/clipboard.js'
 
 const CHAT_STORAGE_KEY = 'workmind.chat.state.v1'
 
@@ -373,8 +374,18 @@ export const useChatStore = defineStore('chat', () => {
 
   // 复制消息内容
   async function copyMessage(content) {
-    await navigator.clipboard.writeText(content)
-    appStore.toast.success('已复制到剪贴板')
+    const { ok, reason } = await copyToClipboard(content)
+    if (ok) {
+      appStore.toast.success('已复制到剪贴板')
+      return true
+    }
+
+    if (reason === 'empty') {
+      appStore.toast.warning('没有可复制的内容')
+    } else {
+      appStore.toast.error('复制失败：浏览器限制（建议使用 HTTPS 访问）')
+    }
+    return false
   }
 
   watch(

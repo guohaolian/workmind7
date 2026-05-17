@@ -79,6 +79,7 @@ import hljs from 'highlight.js'
 import { useAgentStore } from '@/stores/agent.js'
 import { useAppStore } from '@/stores/app.js'
 import ToolCallCard from '@/components/agent/ToolCallCard.vue'
+import { copyToClipboard } from '@/utils/clipboard.js'
 
 const agentStore = useAgentStore()
 const appStore   = useAppStore()
@@ -135,7 +136,19 @@ function toolIcon(n) { return toolIcons[n] || 'Tools' }
 function formatTime(iso) { return iso ? new Date(iso).toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit', second:'2-digit' }) : '' }
 async function runTask() { if (!taskText.value.trim() || agentStore.running) return; const t = taskText.value.trim(); taskText.value = ''; await agentStore.runTask(t) }
 function useExample(task) { if (!agentStore.running) taskText.value = task }
-async function copyAnswer(text) { await navigator.clipboard.writeText(text); appStore.toast.success('已复制') }
+async function copyAnswer(text) {
+  const { ok, reason } = await copyToClipboard(text)
+  if (ok) {
+    appStore.toast.success('已复制')
+    return
+  }
+
+  if (reason === 'empty') {
+    appStore.toast.warning('没有可复制的内容')
+  } else {
+    appStore.toast.error('复制失败：浏览器限制（建议使用 HTTPS 访问）')
+  }
+}
 onMounted(() => agentStore.loadMeta())
 </script>
 <style scoped>
