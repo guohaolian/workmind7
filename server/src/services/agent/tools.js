@@ -137,8 +137,9 @@ export const getDateTool = tool(
     description: '获取日期信息：查询今天日期、计算两个日期之间的天数和工作日数、日期加减。用于请假天数计算、项目工期估算等。',
     schema: z.object({
       operation: z.enum(['today', 'diff', 'add_days']).describe('today=获取今天日期, diff=计算日期差, add_days=日期加减'),
-      date1: z.string().optional().describe('开始日期，格式 YYYY-MM-DD'),
-      date2: z.string().optional().describe('结束日期或天数'),
+      // Structured Outputs 要求字段必须 required；用 nullable 表达“可不填”
+      date1: z.string().nullable().describe('开始日期，格式 YYYY-MM-DD；不需要时传 null'),
+      date2: z.string().nullable().describe('结束日期或天数；不需要时传 null'),
     }),
   }
 )
@@ -148,6 +149,8 @@ export const getDateTool = tool(
 export const writeReportTool = tool(
   async ({ title, content, format }) => {
     logger.info('tool:write_report', { title, format })
+
+    const finalFormat = format || 'markdown'
 
     const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ')
     const report = `# ${title}
@@ -169,6 +172,7 @@ ${content}
       success: true,
       title,
       content: report,
+      format: finalFormat,
       savedAt: timestamp,
       message: `报告「${title}」已生成，共 ${report.length} 字`,
     })
@@ -179,7 +183,8 @@ ${content}
     schema: z.object({
       title:   z.string().describe('报告标题'),
       content: z.string().describe('报告正文内容，使用 Markdown 格式'),
-      format:  z.enum(['markdown', 'plain']).default('markdown'),
+      // 用 nullable 表达可选；工具内部会 fallback 到 markdown
+      format:  z.enum(['markdown', 'plain']).nullable().describe('报告格式；不需要时传 null'),
     }),
   }
 )
@@ -189,6 +194,8 @@ export const sendNotifyTool = tool(
   async ({ to, subject, message, channel }) => {
     logger.info('tool:send_notify', { to, subject, channel })
 
+    const finalChannel = channel || 'feishu'
+
     // 模拟发送（生产接真实的飞书/钉钉/邮件 API）
     await new Promise(r => setTimeout(r, 200))  // 模拟网络延迟
 
@@ -196,9 +203,9 @@ export const sendNotifyTool = tool(
       success: true,
       to,
       subject,
-      channel,
+      channel: finalChannel,
       sentAt: new Date().toISOString(),
-      message: `通知已通过 ${channel} 发送给 ${to}`,
+      message: `通知已通过 ${finalChannel} 发送给 ${to}`,
     })
   },
   {
@@ -208,7 +215,8 @@ export const sendNotifyTool = tool(
       to:      z.string().describe('接收人，如"张三"或"tech-team"'),
       subject: z.string().describe('消息主题'),
       message: z.string().describe('消息正文（简洁）'),
-      channel: z.enum(['email', 'feishu', 'dingtalk']).default('feishu'),
+      // 用 nullable 表达可选；工具内部会 fallback 到 feishu
+      channel: z.enum(['email', 'feishu', 'dingtalk']).nullable().describe('通知渠道；不需要时传 null'),
     }),
   }
 )

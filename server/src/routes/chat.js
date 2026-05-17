@@ -2,7 +2,7 @@
 // 对话路由：流式对话 + 缓存 + 会话管理 + 画像
 import express from 'express'
 import { HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages'
-import { chatModel } from '../services/model.js'
+import { chatModel, createChatModel } from '../services/model.js'
 import { cache } from '../services/cache.js'
 import {
   getHistory, trimHistory, clearHistory,
@@ -13,6 +13,7 @@ import { validateChat, rateLimiter, securityCheck } from '../middleware/index.js
 import { sendSseError } from '../utils/errors.js'
 import { logger } from '../utils/logger.js'
 import { recordApiCall } from './monitor.js'
+import { config } from '../config/index.js'
 
 export const chatRouter = express.Router()
 
@@ -113,27 +114,52 @@ chatRouter.post('/stream',
 
       send('start', { sessionId })
 
-      // 5. 流式调用模型
+      // 5. 调用模型
+      // DeepSeek thinking=enabled 会返回 reasoning_content，并要求在下一轮请求中原样带回。
+      // LangChain 流式 chunk 未必稳定包含 reasoning_content，因此这里在 thinking=enabled 时改用 invoke，
+      // 再在服务端“模拟流式”推送给前端。
+      const thinkingEnabled = config.ai.thinkingType === 'enabled'
       let fullReply = ''
       let inputTokens = 0, outputTokens = 0
-      const stream = await chatModel.stream(messages)
+      let aiMessage
 
-      for await (const chunk of stream) {
-        const text = extractChunkText(chunk.content)
-        if (text) {
-          fullReply += text
-          send('token', { token: text })
+      if (thinkingEnabled) {
+        const nonStreamingModel = createChatModel({ temperature: 0.7, streaming: false })
+        aiMessage = await nonStreamingModel.invoke(messages)
+        fullReply = extractChunkText(aiMessage.content)
+
+        // 模拟流式输出（保持前端体验一致）
+        const chars = fullReply.split('')
+        for (let i = 0; i < chars.length; i += 3) {
+          send('token', { token: chars.slice(i, i + 3).join('') })
+          await new Promise(r => setTimeout(r, 6))
         }
-        // DeepSeek 在最后一个 chunk 里返回 usage
-        if (chunk.usage_metadata) {
-          inputTokens  = chunk.usage_metadata.input_tokens  || 0
-          outputTokens = chunk.usage_metadata.output_tokens || 0
+
+        if (aiMessage.usage_metadata) {
+          inputTokens = aiMessage.usage_metadata.input_tokens || 0
+          outputTokens = aiMessage.usage_metadata.output_tokens || 0
+        }
+      } else {
+        // 5.1 流式调用模型
+        const stream = await chatModel.stream(messages)
+        for await (const chunk of stream) {
+          const text = extractChunkText(chunk.content)
+          if (text) {
+            fullReply += text
+            send('token', { token: text })
+          }
+          // DeepSeek 在最后一个 chunk 里返回 usage
+          if (chunk.usage_metadata) {
+            inputTokens  = chunk.usage_metadata.input_tokens  || 0
+            outputTokens = chunk.usage_metadata.output_tokens || 0
+          }
         }
       }
 
       // 6. 更新会话历史
       history.push(new HumanMessage(message))
-      history.push(new AIMessage(fullReply))
+      // thinking=enabled 时保留 AIMessage 的 additional_kwargs（包含 reasoning_content）以便下一轮回传
+      history.push(aiMessage || new AIMessage(fullReply))
       // 超过 20 条时删掉最老的 2 条（保持最近 10 轮）
       if (history.length > 20) history.splice(0, 2)
 
