@@ -35,6 +35,7 @@
           v-for="msg in chatStore.messages"
           :key="msg.id"
           :message="msg"
+          @regenerate="chatStore.regenerate"
         />
 
         <!-- 底部锚点，用于滚动到底 -->

@@ -328,20 +328,47 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 重新生成最后一条 AI 回复
-  async function regenerate() {
-    const msgs = currentSession.value?.messages || []
-    // 找最后一条用户消息
-    const lastUser = [...msgs].reverse().find(m => m.role === 'user')
-    if (!lastUser) return
+  // 重新生成某一条 AI 回复（默认：最后一条 assistant）
+  // 说明：为了保持对话一致性，会从该回复对应的上一条 user 消息开始裁剪后续消息，再重新发送该 user 内容。
+  async function regenerate(targetAssistantMessageId) {
+    const session = currentSession.value
+    const msgs = session?.messages || []
+    if (!msgs.length) return
 
-    // 移除最后一条 AI 消息
-    const lastAiIdx = msgs.length - 1
-    if (msgs[lastAiIdx]?.role === 'assistant') {
-      msgs.splice(lastAiIdx, 1)
+    // 如果当前还在生成，先中止，避免并发写入 messages
+    if (loading.value) stopGenerate()
+
+    let targetIdx = -1
+    if (typeof targetAssistantMessageId === 'string' && targetAssistantMessageId) {
+      targetIdx = msgs.findIndex(m => m.id === targetAssistantMessageId)
+    } else {
+      for (let i = msgs.length - 1; i >= 0; i -= 1) {
+        if (msgs[i]?.role === 'assistant') {
+          targetIdx = i
+          break
+        }
+      }
     }
 
-    await sendMessage(lastUser.content)
+    if (targetIdx === -1 || msgs[targetIdx]?.role !== 'assistant') return
+
+    // 寻找该 assistant 回复对应的上一条 user 消息
+    let userIdx = -1
+    for (let i = targetIdx - 1; i >= 0; i -= 1) {
+      if (msgs[i]?.role === 'user') {
+        userIdx = i
+        break
+      }
+    }
+    if (userIdx === -1) return
+
+    const userContent = msgs[userIdx]?.content || ''
+    if (!userContent.trim()) return
+
+    // 裁剪从该 user 消息开始的所有后续（包含该 user 与该 assistant 以及之后的上下文）
+    msgs.splice(userIdx)
+
+    await sendMessage(userContent)
   }
 
   // 复制消息内容

@@ -29,7 +29,7 @@
           <button class="action-btn" @click="copy" title="复制">
             {{ copied ? '✓ 已复制' : '复制' }}
           </button>
-          <button class="action-btn" @click="emit('regenerate')" title="重新生成">
+          <button class="action-btn" @click="emit('regenerate', message.id)" title="重新生成">
             ↻ 重新生成
           </button>
           <button class="action-btn icon-only like" :class="{ active: liked }" @click="like" title="有帮助">
@@ -55,7 +55,9 @@ const props = defineProps({
   message: { type: Object, required: true },
 })
 
-const emit = defineEmits(['regenerate'])
+const emit = defineEmits({
+  regenerate: (messageId) => typeof messageId === 'string' && messageId.length > 0,
+})
 
 const chatStore = useChatStore()
 const copied = ref(false)
