@@ -12,6 +12,19 @@ import { config } from '../config/index.js'
  * @param {array}   options.callbacks    - LangChain 回调（如成本追踪）
  */
 export function createChatModel({ temperature = 0.7, streaming = false, callbacks = [] } = {}) {
+  const modelKwargs = {}
+  const isDeepseekV4 = /^deepseek-v4-/.test(config.ai.primaryModel)
+
+  // DeepSeek v4：显式指定 thinking.type 可以在“思考/非思考”两种模式间切换。
+  // 为了兼容旧 deepseek-chat 的体验：未配置时默认 disabled。
+  const thinkingType = config.ai.thinkingType || (isDeepseekV4 ? 'disabled' : undefined)
+  if (thinkingType) {
+    modelKwargs.thinking = { type: thinkingType }
+  }
+  if (config.ai.reasoningEffort) {
+    modelKwargs.reasoning_effort = config.ai.reasoningEffort
+  }
+
   return new ChatOpenAI({
     model:         config.ai.primaryModel,
     apiKey:        config.ai.deepseekKey,
@@ -19,6 +32,7 @@ export function createChatModel({ temperature = 0.7, streaming = false, callback
     temperature,
     streaming,
     callbacks,
+    ...(Object.keys(modelKwargs).length ? { modelKwargs } : {}),
     // 超时 30s（流式可能需要更长，在路由层单独控制）
     timeout: 30000,
   })

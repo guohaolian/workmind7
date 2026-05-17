@@ -23,10 +23,15 @@ export const config = {
   ai: {
     deepseekKey:   process.env.DEEPSEEK_API_KEY,
     openaiKey:     process.env.OPENAI_API_KEY,
-    primaryModel:  process.env.PRIMARY_MODEL  || 'deepseek-chat',
+    primaryModel:  process.env.PRIMARY_MODEL  || 'deepseek-v4-flash',
     embedModel:    process.env.EMBED_MODEL    || 'BAAI/bge-large-zh-v1.5',
     baseURL:       'https://api.deepseek.com/v1',
     embedBaseURL:  normalizeEmbedBaseURL(process.env.EMBED_BASE_URL),
+    // DeepSeek v4 系列可选参数：思考模式与推理强度
+    // - thinking.type: enabled/disabled（disabled 近似旧 deepseek-chat 行为）
+    // - reasoning_effort: low/medium/high（通常在 thinking enabled 时配合使用）
+    thinkingType: (process.env.DEEPSEEK_THINKING_TYPE || '').trim() || undefined,
+    reasoningEffort: (process.env.DEEPSEEK_REASONING_EFFORT || '').trim() || undefined,
   },
   chroma: {
     url: process.env.CHROMA_URL || 'http://localhost:8006',
@@ -41,5 +46,15 @@ export function validateConfig() {
     console.error('❌ 缺少 DEEPSEEK_API_KEY，请在 .env 文件中配置')
     process.exit(1)
   }
+
+  if (config.ai.thinkingType && !['enabled', 'disabled'].includes(config.ai.thinkingType)) {
+    console.warn('⚠️  DEEPSEEK_THINKING_TYPE 仅支持 enabled/disabled，将忽略该配置')
+    config.ai.thinkingType = undefined
+  }
+  if (config.ai.reasoningEffort && !['low', 'medium', 'high'].includes(config.ai.reasoningEffort)) {
+    console.warn('⚠️  DEEPSEEK_REASONING_EFFORT 仅支持 low/medium/high，将忽略该配置')
+    config.ai.reasoningEffort = undefined
+  }
+
   console.log('✓ 配置校验通过')
 }

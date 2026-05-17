@@ -38,6 +38,7 @@ cd workmind
 cd server
 cp .env.example .env
 # 编辑 .env，填入 DEEPSEEK_API_KEY
+# 如使用 deepseek-v4-*，可选配置：DEEPSEEK_THINKING_TYPE（enabled/disabled）与 DEEPSEEK_REASONING_EFFORT（low/medium/high）
 ```
 
 ### 3. 启动后端
