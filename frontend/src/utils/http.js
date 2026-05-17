@@ -55,7 +55,15 @@ http.interceptors.response.use(
 export async function fetchStream(
   url,
   body,
-  { onToken, onEvent, onDone, onError, terminalEvents = ['done', 'error'] } = {}
+  {
+    onToken,
+    onEvent,
+    onDone,
+    onError,
+    onAbort,
+    terminalEvents = ['done', 'error'],
+    signal,
+  } = {}
 ) {
   try {
     const buildCandidates = (path) => {
@@ -71,14 +79,24 @@ export async function fetchStream(
     let lastError = new Error('流式请求失败')
 
     for (const requestUrl of candidates) {
+      if (signal?.aborted) {
+        onAbort?.()
+        return
+      }
+
       let response
       try {
         response = await fetch(requestUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
+          signal,
         })
       } catch (err) {
+        if (err?.name === 'AbortError' || signal?.aborted) {
+          onAbort?.()
+          return
+        }
         const message = err?.message || '网络连接失败'
         lastError = new Error(`请求 ${requestUrl} 失败：${message}`)
         continue
@@ -118,6 +136,7 @@ export async function fetchStream(
       )
 
       const dispatchPart = (rawPart) => {
+        if (signal?.aborted) return
         const part = rawPart.trim()
         if (!part) return
 
@@ -161,19 +180,32 @@ export async function fetchStream(
         }
       }
 
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
+      try {
+        while (true) {
+          if (signal?.aborted) {
+            onAbort?.()
+            return
+          }
 
-        buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+          const { value, done } = await reader.read()
+          if (done) break
 
-        // SSE 格式：event 和 data 之间用 \n\n 分隔
-        const parts = buffer.split('\n\n')
-        buffer = parts.pop() ?? ''
+          buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n').replace(/\r/g, '\n')
 
-        for (const part of parts) {
-          dispatchPart(part)
+          // SSE 格式：event 和 data 之间用 \n\n 分隔
+          const parts = buffer.split('\n\n')
+          buffer = parts.pop() ?? ''
+
+          for (const part of parts) {
+            dispatchPart(part)
+          }
         }
+      } catch (err) {
+        if (err?.name === 'AbortError' || signal?.aborted) {
+          onAbort?.()
+          return
+        }
+        throw err
       }
 
       // 处理最后残留的未分隔片段

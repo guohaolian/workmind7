@@ -47,6 +47,19 @@ chatRouter.post('/stream',
     res.setHeader('X-Accel-Buffering', 'no')
     res.flushHeaders?.()
 
+    // 客户端断开时，尽快中止模型请求，避免后端继续生成
+    // 注意：不要用 req.on('close')，它在请求体读取完成后也可能触发，导致“刚提问就被中止”。
+    const abortController = new AbortController()
+    let clientClosed = false
+    const handleDisconnect = () => {
+      // 正常结束（done/error 后 res.end）不应视为“中断”
+      if (res.writableEnded) return
+      clientClosed = true
+      try { abortController.abort() } catch {}
+    }
+    res.on('close', handleDisconnect)
+    req.on('aborted', handleDisconnect)
+
     const extractChunkText = (content) => {
       if (!content) return ''
       if (typeof content === 'string') return content
@@ -66,9 +79,14 @@ chatRouter.post('/stream',
     }
 
     const send = (event, data) => {
-      if (!res.writableEnded) {
+      if (clientClosed || abortController.signal.aborted || res.writableEnded) return false
+      try {
         res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
         res.flush?.()
+        return true
+      } catch {
+        handleDisconnect()
+        return false
       }
     }
 
@@ -89,9 +107,11 @@ chatRouter.post('/stream',
         // 模拟流式输出缓存内容（让前端体验一致）
         const words = cached.content.split('')
         for (let i = 0; i < words.length; i += 3) {
+          if (clientClosed || abortController.signal.aborted) return
           send('token', { token: words.slice(i, i + 3).join('') })
           await new Promise(r => setTimeout(r, 6))
         }
+        if (clientClosed || abortController.signal.aborted) return
         send('done', { fromCache: true })
         recordApiCall({
           feature: 'chat',
@@ -125,12 +145,13 @@ chatRouter.post('/stream',
 
       if (thinkingEnabled) {
         const nonStreamingModel = createChatModel({ temperature: 0.7, streaming: false })
-        aiMessage = await nonStreamingModel.invoke(messages)
+        aiMessage = await nonStreamingModel.invoke(messages, { signal: abortController.signal })
         fullReply = extractChunkText(aiMessage.content)
 
         // 模拟流式输出（保持前端体验一致）
         const chars = fullReply.split('')
         for (let i = 0; i < chars.length; i += 3) {
+          if (clientClosed || abortController.signal.aborted) return
           send('token', { token: chars.slice(i, i + 3).join('') })
           await new Promise(r => setTimeout(r, 6))
         }
@@ -141,8 +162,9 @@ chatRouter.post('/stream',
         }
       } else {
         // 5.1 流式调用模型
-        const stream = await chatModel.stream(messages)
+        const stream = await chatModel.stream(messages, { signal: abortController.signal })
         for await (const chunk of stream) {
+          if (clientClosed || abortController.signal.aborted) return
           const text = extractChunkText(chunk.content)
           if (text) {
             fullReply += text
@@ -155,6 +177,8 @@ chatRouter.post('/stream',
           }
         }
       }
+
+      if (clientClosed || abortController.signal.aborted) return
 
       // 6. 更新会话历史
       history.push(new HumanMessage(message))
@@ -187,6 +211,10 @@ chatRouter.post('/stream',
         replyLen: fullReply.length,
       })
     } catch (err) {
+      if (clientClosed || abortController.signal.aborted) {
+        logger.info('chat aborted by client', { sessionId, traceId: req.traceId })
+        return
+      }
       logger.error('chat error', { error: err.message, traceId: req.traceId })
       sendSseError(res, err)
     } finally {

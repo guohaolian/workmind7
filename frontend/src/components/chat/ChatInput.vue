@@ -86,7 +86,7 @@ function resetHeight() {
 
 // 停止生成（目前靠关闭 SSE 连接来实现，这里只是 UI 状态）
 function stopGenerate() {
-  chatStore.loading = false
+  chatStore.stopGenerate()
 }
 </script>
 

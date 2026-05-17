@@ -42,6 +42,10 @@ export const useChatStore = defineStore('chat', () => {
   const monitorStore = useMonitorStore()
   let storageReady = false
 
+  // 当前流式请求的取消句柄（用于“停止生成”）
+  let activeStreamController = null
+  let activeStreamRequestId = 0
+
   // ── 会话列表 ──────────────────────────────────────────────────
   // 每个会话：{ id, title, messages: [], createdAt }
   const sessions    = ref([])
@@ -194,6 +198,25 @@ export const useChatStore = defineStore('chat', () => {
   // ── 发送消息（核心）──────────────────────────────────────────
   const loading = ref(false)
 
+  function stopGenerate() {
+    if (!loading.value) return
+
+    // 立即让 UI 退出 loading，避免按钮“没反应”的感觉
+    loading.value = false
+
+    try {
+      activeStreamController?.abort()
+    } catch {}
+    activeStreamController = null
+
+    // 关闭最后一条 AI 消息的 streaming 光标
+    const session = currentSession.value
+    const lastMsg = session?.messages?.[session.messages.length - 1]
+    if (lastMsg?.role === 'assistant') {
+      lastMsg.streaming = false
+    }
+  }
+
   async function sendMessage(text) {
     if (!text.trim() || loading.value) return
     if (!currentId.value) newSession()
@@ -201,6 +224,15 @@ export const useChatStore = defineStore('chat', () => {
     const session = currentSession.value
     if (!session) return
     loading.value = true
+
+    // 生成新的请求上下文（支持取消）
+    activeStreamRequestId += 1
+    const requestId = activeStreamRequestId
+    try {
+      activeStreamController?.abort()
+    } catch {}
+    const controller = new AbortController()
+    activeStreamController = controller
 
     // 添加用户消息
     const userMsg = {
@@ -238,15 +270,19 @@ export const useChatStore = defineStore('chat', () => {
           userId:    userId.value,
         },
         {
+          signal: controller.signal,
           onToken: (token) => {
+            if (requestId !== activeStreamRequestId || controller.signal.aborted) return
             receivedToken = true
             aiMsg.content += token
           },
           onEvent: (event, data) => {
+            if (requestId !== activeStreamRequestId) return
             if (event === 'cache_hit') aiMsg.fromCache = true
             if (event === 'start')     aiMsg.streaming = true
           },
           onDone: (data) => {
+            if (requestId !== activeStreamRequestId) return
             hasTerminalEvent = true
             aiMsg.streaming = false
             // 记录用量
@@ -263,7 +299,12 @@ export const useChatStore = defineStore('chat', () => {
             // 刷新画像（后台可能更新了）
             loadProfile()
           },
+          onAbort: () => {
+            hasTerminalEvent = true
+            aiMsg.streaming = false
+          },
           onError: (err) => {
+            if (requestId !== activeStreamRequestId) return
             hasTerminalEvent = true
             aiMsg.streaming = false
             aiMsg.content   = aiMsg.content || '抱歉，出现了一些问题，请重试。'
@@ -272,13 +313,18 @@ export const useChatStore = defineStore('chat', () => {
         }
       )
     } finally {
+      if (activeStreamController === controller) {
+        activeStreamController = null
+      }
       if (!hasTerminalEvent) {
         aiMsg.streaming = false
         if (!receivedToken) {
           aiMsg.content = '未收到模型响应，请检查后端服务或前端 API 地址配置。'
         }
       }
-      loading.value = false
+      if (requestId === activeStreamRequestId) {
+        loading.value = false
+      }
     }
   }
 
@@ -320,6 +366,6 @@ export const useChatStore = defineStore('chat', () => {
     loading,
     init, newSession, switchSession, deleteSession,
     loadRoles, loadProfile,
-    sendMessage, regenerate, copyMessage,
+    sendMessage, stopGenerate, regenerate, copyMessage,
   }
 })
